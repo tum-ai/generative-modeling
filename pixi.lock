@@ -655,7 +655,7 @@ packages:
 - pypi: ./
   name: generative-modeling
   version: 0.1.0
-  sha256: 9a906d294dc640b057d0e02ac1b3557f0b982bb7dc5064b4a41c90bcbf05aaf2
+  sha256: e356dd160765c5718f24e6972e187e13e8db5776969e373a9d1e619e4f9a1699
   requires_python: '>=3.12'
   editable: true
 - pypi: https://files.pythonhosted.org/packages/a0/61/5c78b91c3143ed5c14207f463aecfc8f9dbb5092fb2869baf37c273b2705/gitdb-4.0.12-py3-none-any.whl
