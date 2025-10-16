@@ -3,6 +3,14 @@ from tqdm import tqdm
 import pickle
 
 
+def extract_unique_chars_from_corpus(corpus):
+    chars = set()
+
+    for line in corpus:
+        chars.update(line)
+    return list(sorted(chars))
+
+
 class BPETokenizer:
     def __init__(self, special_tokens, basic_tokens):
         self.special_tokens = special_tokens

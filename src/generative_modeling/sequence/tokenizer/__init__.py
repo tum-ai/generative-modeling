@@ -1,1 +1,1 @@
-from .bpe import BPETokenizer
+from .bpe import BPETokenizer, extract_unique_chars_from_corpus
