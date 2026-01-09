@@ -1,11 +1,26 @@
 # generative-modeling
 
-## Instructions
-
-### Environment
+## Environment
 
 Install [pixi package manager](https://pixi.sh/latest/installation/).
 Pixi will automatically take care of the environment (based on `pyproject.toml` and `pixi.lock`) so no setup is required.
+
+## Variational Inference
+
+### GMM Training Comparison: Gradient Ascent vs EM
+
+```bash
+# generate dataset
+pixi run python src/scripts/variational/generate_data.py
+
+# train GMM with gradient ascent
+pixi run python src/scripts/variational/train_gmm_gradient.py
+
+# train GMM with EM algorithm
+pixi run python src/scripts/variational/train_gmm_em.py
+```
+
+## Sequence
 
 ### Transformer
 ```bash
