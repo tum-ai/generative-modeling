@@ -175,3 +175,5 @@ pyrightconfig.json
 
 data/
 out/
+third_party/
+wandb/

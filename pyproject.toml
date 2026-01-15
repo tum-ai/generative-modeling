@@ -14,10 +14,12 @@ requires = ["hatchling"]
 
 [tool.pixi.workspace]
 channels = ["conda-forge"]
-platforms = ["osx-arm64"]
+platforms = ["osx-arm64", "linux-64"]
 
 [tool.pixi.dependencies]
 python = "==3.12"
+wandb = ">=0.23.1,<0.24"
+gdown = ">=5.2.1,<6"
 
 [tool.pixi.pypi-dependencies]
 generative_modeling = { path = ".", editable = true }
