@@ -30,14 +30,14 @@ CONFIG = {
     "sobel_loss_type": "L2",
     # "adv_weight": 0.001,  # 0.001 gives around 20% mse
     "adv_weight": 0.0,
-    # "perceptual_weight": 0.77,  # 0.77 gives around 20% mse
-    "perceptual_weight": 0.0,
+    "perceptual_weight": 0.77,  # 0.77 gives around 20% mse
+    # "perceptual_weight": 0.0,
     # "lpips_weight": 0.02,  # 0.02 gives around 20% mse
     "lpips_weight": 0.0,
     "celeb_path": "./data/",
     "device": "cuda" if torch.cuda.is_available() else "cpu",
     "project_name": "gm-variational",
-    "run_name": "celeba-vae-kl0.001-sobel0.03-adv0.001-perc0.77-lpips0.02",
+    "run_name": "celeba-vae-kl0.001-perceptual",
     "seed": 42,
     "num_workers": 8,
 }
