@@ -168,13 +168,12 @@ def perceptual_loss(recon_x, target_x, facenet, normalize_embeddings=True):
         target_x = F.interpolate(target_x, size=(160, 160), mode='bilinear', align_corners=False)
     
     # Get embeddings
-    with torch.no_grad():
-        feat_recon = facenet(recon_x)
-        feat_target = facenet(target_x)
-        
-        if normalize_embeddings:
-            feat_recon = F.normalize(feat_recon, p=2, dim=1)
-            feat_target = F.normalize(feat_target, p=2, dim=1)
+    feat_recon = facenet(recon_x)
+    feat_target = facenet(target_x)
+    
+    if normalize_embeddings:
+        feat_recon = F.normalize(feat_recon, p=2, dim=1)
+        feat_target = F.normalize(feat_target, p=2, dim=1)
     
     # Compute L2 distance
     embedding_distance = F.mse_loss(feat_recon, feat_target, reduction='mean')

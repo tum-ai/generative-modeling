@@ -217,29 +217,15 @@ def get_pgan_discriminator(use_gpu=True):
 
 
 def adversarial_loss(recon_x, discriminator, preprocess=True):
-    """
-    Simple functional interface for adversarial loss.
-    
-    Args:
-        recon_x: Reconstructed images in [0, 1]
-        discriminator: PGAN discriminator
-        preprocess: Whether to convert from [0,1] to [-1,1]
-        
-    Returns:
-        loss: Adversarial loss (to minimize)
-        d_score: Mean discriminator score
-    """
     if preprocess:
-        x = recon_x * 2.0 - 1.0
+        x = recon_x * 2.0 - 1.0 # discriminator expects [-1, 1]
         if x.shape[2] != 128 or x.shape[3] != 128:
             x = F.interpolate(x, size=(128, 128), mode='bilinear', align_corners=False)
     else:
         x = recon_x
     
-    with torch.no_grad():
-        d_score = discriminator(x).squeeze()
+    d_score = discriminator(x).squeeze()
     
-    # Non-saturating GAN loss for generator
     loss = F.softplus(-d_score).mean()
     
     return loss, d_score.mean()

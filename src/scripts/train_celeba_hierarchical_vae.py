@@ -30,6 +30,7 @@ CONFIG = {
     "sobel_loss_type": "L2",
     # "adv_weight": 0.001,  # 0.001 gives around 20% mse
     "adv_weight": 0.0,
+    "adv_eval_samples": 128,  # Number of random samples to evaluate adversarial loss on each iteration
     # "perceptual_weight": 0.77,  # 0.77 gives around 20% mse
     "perceptual_weight": 0.0,
     # "lpips_weight": 0.02,  # 0.02 gives around 20% mse
@@ -153,19 +154,29 @@ def train(model, train_loader, optimizer, epoch, config, discriminator=None, fac
     total_adv = 0
     total_perc = 0
     total_lpips = 0
-    
+    total_adv_eval = 0
+
     pbar = tqdm(enumerate(train_loader), total=len(train_loader), desc=f"Epoch {epoch} [Train]")
     for batch_idx, (data, _) in pbar:
         data = data.to(config["device"])
         optimizer.zero_grad()
-        
+
         recon_batch, zs, kl_losses = model(data)
-        
+
         loss, mse, kld, sobel, adv, perc, lpips_val = loss_function(recon_batch, data, kl_losses, config, discriminator, facenet, lpips_model)
+
+        # Evaluate adversarial loss on samples from prior (to smooth latent space)
+        adv_eval_loss = torch.tensor(0.0, device=config["device"])
+        if discriminator is not None and config["adv_weight"] > 0 and config["adv_eval_samples"] > 0:
+            # Sample from prior and generate
+            prior_samples = model.sample(config["adv_eval_samples"], config["device"])
+            adv_eval_loss, _ = adversarial_loss(prior_samples, discriminator)
+            # Add weighted adversarial loss to smooth latent space
+            loss = loss + config["adv_weight"] * adv_eval_loss
+
         loss.backward()
-        
         optimizer.step()
-        
+
         train_loss += loss.item()
         total_mse += mse.item()
         total_kld += kld.item()
@@ -173,10 +184,11 @@ def train(model, train_loader, optimizer, epoch, config, discriminator=None, fac
         total_adv += adv.item()
         total_perc += perc.item()
         total_lpips += lpips_val.item()
-        
+        total_adv_eval += adv_eval_loss.item()
+
         if batch_idx % 100 == 0:
             pbar.set_postfix({"loss": f"{loss.item():.4f}", "adv": f"{adv.item():.4f}", "perc": f"{perc.item():.4f}", "lpips": f"{lpips_val.item():.4f}"})
-            
+
             wandb.log({
                 "batch_loss": loss.item(),
                 "batch_mse": mse.item(),
@@ -188,6 +200,7 @@ def train(model, train_loader, optimizer, epoch, config, discriminator=None, fac
                 "batch_kl_z1": kl_losses[0].item(),
                 "batch_kl_z2": kl_losses[1].item(),
                 "batch_kl_z3": kl_losses[2].item(),
+                "batch_adv_eval": adv_eval_loss.item(),
                 "epoch": epoch
             })
 
@@ -198,8 +211,9 @@ def train(model, train_loader, optimizer, epoch, config, discriminator=None, fac
     avg_adv = total_adv / len(train_loader)
     avg_perc = total_perc / len(train_loader)
     avg_lpips = total_lpips / len(train_loader)
-    
-    return avg_loss, avg_mse, avg_kld, avg_sobel, avg_adv, avg_perc, avg_lpips
+    avg_adv_eval = total_adv_eval / len(train_loader)
+
+    return avg_loss, avg_mse, avg_kld, avg_sobel, avg_adv, avg_perc, avg_lpips, avg_adv_eval
 
 def test(model, test_loader, epoch, config, discriminator=None, facenet=None, lpips_model=None):
     model.eval()
@@ -210,13 +224,14 @@ def test(model, test_loader, epoch, config, discriminator=None, facenet=None, lp
     test_adv = 0
     test_perc = 0
     test_lpips = 0
-    
+    test_adv_eval = 0
+
     with torch.no_grad():
         pbar = tqdm(enumerate(test_loader), total=len(test_loader), desc=f"Epoch {epoch} [Test ]")
         for i, (data, _) in pbar:
             data = data.to(config["device"])
             recon_batch, zs, kl_losses = model(data)
-            
+
             loss, mse, kld, sobel, adv, perc, lpips_val = loss_function(recon_batch, data, kl_losses, config, discriminator, facenet, lpips_model)
             test_loss += loss.item()
             test_mse += mse.item()
@@ -225,7 +240,14 @@ def test(model, test_loader, epoch, config, discriminator=None, facenet=None, lp
             test_adv += adv.item()
             test_perc += perc.item()
             test_lpips += lpips_val.item()
-            
+
+            # Evaluate adversarial loss on samples from prior (for monitoring only)
+            adv_eval_loss = torch.tensor(0.0, device=config["device"])
+            if discriminator is not None and config["adv_weight"] > 0 and config["adv_eval_samples"] > 0:
+                prior_samples = model.sample(config["adv_eval_samples"], config["device"])
+                adv_eval_loss, _ = adversarial_loss(prior_samples, discriminator)
+            test_adv_eval += adv_eval_loss.item()
+
             if i == 0:
                 n = min(data.size(0), 8)
                 comparison = torch.cat([data[:n], recon_batch[:n]])
@@ -239,8 +261,9 @@ def test(model, test_loader, epoch, config, discriminator=None, facenet=None, lp
     avg_test_adv = test_adv / len(test_loader)
     avg_test_perc = test_perc / len(test_loader)
     avg_test_lpips = test_lpips / len(test_loader)
-    
-    return avg_test_loss, avg_test_mse, avg_test_kld, avg_test_sobel, avg_test_adv, avg_test_perc, avg_test_lpips
+    avg_test_adv_eval = test_adv_eval / len(test_loader)
+
+    return avg_test_loss, avg_test_mse, avg_test_kld, avg_test_sobel, avg_test_adv, avg_test_perc, avg_test_lpips, avg_test_adv_eval
 
 def main():
     set_seed(CONFIG["seed"])
@@ -281,15 +304,15 @@ def main():
         print(f'LPIPS loss enabled with weight {CONFIG["lpips_weight"]}')
     
     for epoch in range(1, CONFIG["epochs"] + 1):
-        avg_train_loss, avg_train_mse, avg_train_kld, avg_train_sobel, avg_train_adv, avg_train_perc, avg_train_lpips = train(
+        avg_train_loss, avg_train_mse, avg_train_kld, avg_train_sobel, avg_train_adv, avg_train_perc, avg_train_lpips, avg_train_adv_eval = train(
             model, train_loader, optimizer, epoch, CONFIG, discriminator, facenet, lpips_model
         )
-        avg_test_loss, avg_test_mse, avg_test_kld, avg_test_sobel, avg_test_adv, avg_test_perc, avg_test_lpips = test(
+        avg_test_loss, avg_test_mse, avg_test_kld, avg_test_sobel, avg_test_adv, avg_test_perc, avg_test_lpips, avg_test_adv_eval = test(
             model, test_loader, epoch, CONFIG, discriminator, facenet, lpips_model
         )
-        
+
         print(f'====> Epoch: {epoch} Train loss: {avg_train_loss:.4f}, Test loss: {avg_test_loss:.4f}, Adv: {avg_train_adv:.4f}, Perc: {avg_train_perc:.4f}, LPIPS: {avg_train_lpips:.4f}')
-        
+
         wandb.log({
             "epoch_train_loss": avg_train_loss,
             "epoch_train_mse": avg_train_mse,
@@ -298,6 +321,7 @@ def main():
             "epoch_train_adv": avg_train_adv,
             "epoch_train_perc": avg_train_perc,
             "epoch_train_lpips": avg_train_lpips,
+            "epoch_train_adv_eval": avg_train_adv_eval,
             "epoch_test_loss": avg_test_loss,
             "epoch_test_mse": avg_test_mse,
             "epoch_test_kld": avg_test_kld,
@@ -305,6 +329,7 @@ def main():
             "epoch_test_adv": avg_test_adv,
             "epoch_test_perc": avg_test_perc,
             "epoch_test_lpips": avg_test_lpips,
+            "epoch_test_adv_eval": avg_test_adv_eval,
             "epoch": epoch
         })
         

@@ -151,8 +151,7 @@ def lpips_loss(recon_x, target_x, lpips_model):
     target_preprocessed = target_x * 2.0 - 1.0
     
     # Compute LPIPS distance
-    with torch.no_grad():
-        lpips_distance = lpips_model(recon_preprocessed, target_preprocessed)
+    lpips_distance = lpips_model(recon_preprocessed, target_preprocessed)
     
     # Average over batch
     loss = lpips_distance.mean()
