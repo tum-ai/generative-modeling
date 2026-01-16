@@ -1,6 +1,5 @@
 import torch
 from torch import nn
-from torch.nn import functional as F
 
 class CelebABetaVAE(nn.Module):
     def __init__(self, latent_dim=128, image_size=150, hidden_dims=None):
