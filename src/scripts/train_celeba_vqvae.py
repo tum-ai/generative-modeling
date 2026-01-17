@@ -12,7 +12,7 @@ from tqdm import tqdm
 import wandb
 
 from generative_modeling.variational.celeba_vqvae import CelebAVQVAE
-from generative_modeling.losses import sobel_loss_2d, get_pgan_discriminator, adversarial_loss, get_facenet_model, perceptual_loss, get_lpips_model, lpips_loss
+from generative_modeling.losses import sobel_loss_2d, get_stargan_discriminator, stargan_adversarial_loss, get_facenet_model, perceptual_loss, get_lpips_model, lpips_loss
 
 CONFIG = {
     "num_embeddings": 1024,
@@ -26,7 +26,7 @@ CONFIG = {
     "mse_weight": 1.0,
     "sobel_weight": 0.25,
     "sobel_loss_type": "L2",
-    "adv_weight": 0.0,
+    "adv_weight": 0.001715,  # 0.001715 gives around 20% mse (StarGAN)
     "adv_eval_samples": 128,  # Number of random samples to evaluate adversarial loss on each iteration
     "perceptual_weight": 0.0,
     # "lpips_weight": 0.0047,  # 0.0047 gives around 20% mse (alexnet)
@@ -87,8 +87,8 @@ def get_dataloaders(config):
 def get_discriminator(config):
     global DISCRIMINATOR
     if DISCRIMINATOR is None and config["adv_weight"] > 0:
-        print("Loading PGAN discriminator...")
-        DISCRIMINATOR = get_pgan_discriminator(use_gpu=(config["device"] == "cuda"))
+        print("Loading StarGAN discriminator...")
+        DISCRIMINATOR = get_stargan_discriminator(use_gpu=(config["device"] == "cuda"))
         DISCRIMINATOR = DISCRIMINATOR.to(config["device"])
     return DISCRIMINATOR
 
@@ -118,7 +118,7 @@ def loss_function(recon_x, x, vq_loss, config, discriminator=None, facenet=None,
 
     adv_loss = torch.tensor(0.0, device=x.device)
     if config["adv_weight"] > 0 and discriminator is not None:
-        adv_loss, _ = adversarial_loss(recon_x, discriminator)
+        adv_loss, _ = stargan_adversarial_loss(recon_x, discriminator)
 
     perc_loss = torch.tensor(0.0, device=x.device)
     if config["perceptual_weight"] > 0 and facenet is not None:
@@ -160,7 +160,7 @@ def train(model, train_loader, optimizer, epoch, config, discriminator=None, fac
         if discriminator is not None and config["adv_weight"] > 0 and config["adv_eval_samples"] > 0:
             # Sample from prior and generate
             prior_samples = model.sample(config["adv_eval_samples"], config["device"])
-            adv_eval_loss, _ = adversarial_loss(prior_samples, discriminator)
+            adv_eval_loss, _ = stargan_adversarial_loss(prior_samples, discriminator)
             # Add weighted adversarial loss to smooth latent space
             loss = loss + config["adv_weight"] * adv_eval_loss
 
@@ -240,7 +240,7 @@ def test(model, test_loader, epoch, config, discriminator=None, facenet=None, lp
             adv_eval_loss = torch.tensor(0.0, device=config["device"])
             if discriminator is not None and config["adv_weight"] > 0 and config["adv_eval_samples"] > 0:
                 prior_samples = model.sample(config["adv_eval_samples"], config["device"])
-                adv_eval_loss, _ = adversarial_loss(prior_samples, discriminator)
+                adv_eval_loss, _ = stargan_adversarial_loss(prior_samples, discriminator)
             test_adv_eval += adv_eval_loss.item()
 
             if i == 0:

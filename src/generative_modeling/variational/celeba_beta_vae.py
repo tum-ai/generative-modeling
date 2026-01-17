@@ -93,6 +93,11 @@ class CelebABetaVAE(nn.Module):
         result = self.final_layer(result)
         return result
 
+    def sample(self, num_samples, device):
+        """Sample from the prior (standard normal) and decode."""
+        z = torch.randn(num_samples, self.latent_dim).to(device)
+        return self.decode(z)
+
     def forward(self, x):
         mu, log_var = self.encode(x)
         z = self.reparameterize(mu, log_var)

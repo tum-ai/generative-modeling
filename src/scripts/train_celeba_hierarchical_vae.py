@@ -13,7 +13,7 @@ import wandb
 
 # project modules
 from generative_modeling.variational.celeba_hierarchical_vae import CelebAHierarchicalVAE
-from generative_modeling.losses import sobel_loss_2d, get_pgan_discriminator, adversarial_loss, get_facenet_model, perceptual_loss, get_lpips_model, lpips_loss
+from generative_modeling.losses import sobel_loss_2d, get_stargan_discriminator, stargan_adversarial_loss, get_facenet_model, perceptual_loss, get_lpips_model, lpips_loss
 
 # Parameters in dict at top
 CONFIG = {
@@ -28,7 +28,7 @@ CONFIG = {
     # "sobel_weight": 0.03,  # 0.03 gives around 20% mse
     "sobel_weight": 0.0,
     "sobel_loss_type": "L2",
-    # "adv_weight": 0.001,  # 0.001 gives around 20% mse
+    "adv_weight": 0.001715,  # 0.001715 gives around 20% mse (StarGAN)
     "adv_weight": 0.0,
     "adv_eval_samples": 128,  # Number of random samples to evaluate adversarial loss on each iteration
     # "perceptual_weight": 0.77,  # 0.77 gives around 20% mse
@@ -87,13 +87,13 @@ def get_dataloaders(config):
     return train_loader, test_loader
 
 def get_discriminator(config):
-    """Lazy load the PGAN discriminator."""
+    """Lazy load the StarGAN discriminator."""
     global DISCRIMINATOR
     if DISCRIMINATOR is None and config["adv_weight"] > 0:
-        print("Loading PGAN discriminator for adversarial loss...")
-        DISCRIMINATOR = get_pgan_discriminator(use_gpu=(config["device"] == "cuda"))
+        print("Loading StarGAN discriminator for adversarial loss...")
+        DISCRIMINATOR = get_stargan_discriminator(use_gpu=(config["device"] == "cuda"))
         DISCRIMINATOR = DISCRIMINATOR.to(config["device"])
-        print("PGAN discriminator loaded!")
+        print("StarGAN discriminator loaded!")
     return DISCRIMINATOR
 
 
@@ -130,7 +130,7 @@ def loss_function(recon_x, x, kl_losses, config, discriminator=None, facenet=Non
     # Adversarial loss (optional)
     adv_loss = torch.tensor(0.0, device=x.device)
     if config["adv_weight"] > 0 and discriminator is not None:
-        adv_loss, _ = adversarial_loss(recon_x, discriminator)
+        adv_loss, _ = stargan_adversarial_loss(recon_x, discriminator)
     
     # Perceptual loss (optional)
     perc_loss = torch.tensor(0.0, device=x.device)
@@ -170,7 +170,7 @@ def train(model, train_loader, optimizer, epoch, config, discriminator=None, fac
         if discriminator is not None and config["adv_weight"] > 0 and config["adv_eval_samples"] > 0:
             # Sample from prior and generate
             prior_samples = model.sample(config["adv_eval_samples"], config["device"])
-            adv_eval_loss, _ = adversarial_loss(prior_samples, discriminator)
+            adv_eval_loss, _ = stargan_adversarial_loss(prior_samples, discriminator)
             # Add weighted adversarial loss to smooth latent space
             loss = loss + config["adv_weight"] * adv_eval_loss
 
@@ -245,7 +245,7 @@ def test(model, test_loader, epoch, config, discriminator=None, facenet=None, lp
             adv_eval_loss = torch.tensor(0.0, device=config["device"])
             if discriminator is not None and config["adv_weight"] > 0 and config["adv_eval_samples"] > 0:
                 prior_samples = model.sample(config["adv_eval_samples"], config["device"])
-                adv_eval_loss, _ = adversarial_loss(prior_samples, discriminator)
+                adv_eval_loss, _ = stargan_adversarial_loss(prior_samples, discriminator)
             test_adv_eval += adv_eval_loss.item()
 
             if i == 0:
