@@ -29,6 +29,7 @@ CONFIG = {
     "adv_weight": 0.0,
     "adv_eval_samples": 128,  # Number of random samples to evaluate adversarial loss on each iteration
     "perceptual_weight": 0.0,
+    # "lpips_weight": 0.0047,  # 0.0047 gives around 20% mse (alexnet)
     "lpips_weight": 0.0,
     "celeb_path": "./data/",
     "device": "cuda" if torch.cuda.is_available() else "cpu",
@@ -105,7 +106,7 @@ def get_lpips(config):
     global LPIPS_MODEL
     if LPIPS_MODEL is None and config["lpips_weight"] > 0:
         print("Loading LPIPS model...")
-        LPIPS_MODEL = get_lpips_model(net='vgg', use_gpu=(config["device"] == "cuda"))
+        LPIPS_MODEL = get_lpips_model(net='alex', use_gpu=(config["device"] == "cuda"))
         LPIPS_MODEL = LPIPS_MODEL.to(config["device"])
     return LPIPS_MODEL
 

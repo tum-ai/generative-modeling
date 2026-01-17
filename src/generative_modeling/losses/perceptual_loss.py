@@ -149,19 +149,6 @@ def get_facenet_model(pretrained='vggface2', use_gpu=True):
 
 
 def perceptual_loss(recon_x, target_x, facenet, normalize_embeddings=True):
-    """
-    Simple functional interface for perceptual loss.
-    
-    Args:
-        recon_x: Reconstructed images in [0, 1]
-        target_x: Original images in [0, 1]
-        facenet: FaceNet model
-        normalize_embeddings: Whether to L2-normalize embeddings
-        
-    Returns:
-        loss: Perceptual loss (L2 distance between embeddings)
-        embedding_distance: Mean L2 distance between embeddings
-    """
     # Resize to 160x160 for FaceNet
     if recon_x.shape[2] != 160 or recon_x.shape[3] != 160:
         recon_x = F.interpolate(recon_x, size=(160, 160), mode='bilinear', align_corners=False)

@@ -3,21 +3,6 @@ from torch import nn
 
 
 class VectorQuantizer(nn.Module):
-    """Vector quantization with straight-through estimator (STE) for gradients.
-
-    The VQ-VAE uses a discrete latent representation by quantizing encoder outputs
-    to the nearest entry in a learned codebook. This creates a non-differentiable
-    operation (argmin), so we use the STE trick to allow gradients to flow.
-
-    STE trick: during forward pass, use discrete codebook indices (non-differentiable).
-    During backward pass, copy gradients from decoder output directly to encoder output,
-    bypassing the non-differentiable quantization operation.
-
-    Loss components:
-    - Codebook loss: moves codebook entries towards encoder outputs (beta * ||z_e - z_q||^2)
-    - Commitment loss: encourages encoder to commit to codebook (||z_e.detach() - z_q||^2)
-    """
-
     def __init__(self, num_embeddings, embedding_dim, commitment_cost=0.25):
         super().__init__()
         self.num_embeddings = num_embeddings
@@ -30,23 +15,6 @@ class VectorQuantizer(nn.Module):
         self.embedding.weight.data.uniform_(-1.0 / num_embeddings, 1.0 / num_embeddings)
 
     def compute_vq_loss(self, z_e_flat, z_q_flat, encodings):
-        """Compute VQ-VAE loss: codebook loss + commitment loss.
-
-        The VQ-VAE loss has two components:
-        1. Codebook loss (beta * ||z_e - z_q||^2): moves codebook entries towards encoder outputs
-           - Only z_q gets gradients (z_e is detached), so only codebook is updated
-        2. Commitment loss (||z_e.detach() - z_q||^2): encourages encoder to commit to codebook
-           - Only z_e gets gradients (z_q is detached), so only encoder is updated
-
-        Args:
-            z_e_flat: [B*H*W, C] flattened encoder outputs
-            z_q_flat: [B*H*W, C] flattened quantized codes
-            encodings: [B*H*W, num_embeddings] one-hot encodings of selected codes
-
-        Returns:
-            loss: scalar VQ loss
-            perplexity: measure of codebook usage (higher = more uniform usage)
-        """
         # Codebook loss: move codebook entries towards encoder outputs
         # detach() on z_e ensures gradients only flow to codebook (z_q)
         codebook_loss = torch.mean((z_q_flat - z_e_flat.detach()) ** 2)
@@ -59,32 +27,18 @@ class VectorQuantizer(nn.Module):
         loss = codebook_loss + self.commitment_cost * commitment_loss
 
         # Perplexity: measures how uniformly the codebook is used
-        # Higher perplexity = more uniform usage (max = num_embeddings)
-        # Lower perplexity = some codes used much more than others (min = 1)
         e_mean = torch.mean(encodings, dim=0)
         perplexity = torch.exp(-torch.sum(e_mean * torch.log(e_mean + 1e-10)))
 
         return loss, perplexity
 
     def forward(self, z_e):
-        """Quantize encoder output z_e to nearest codebook entry.
-
-        Args:
-            z_e: [B, C, H, W] encoder output (continuous)
-
-        Returns:
-            z_q: [B, C, H, W] quantized (discrete, but with STE gradients)
-            loss: commitment loss + codebook loss
-            perplexity: measure of codebook usage
-            encodings: one-hot encodings of selected codes
-        """
         # Reshape to [B*H*W, C] for distance computation
         z_e_flat = z_e.permute(0, 2, 3, 1).contiguous()
         z_e_flat = z_e_flat.view(-1, self.embedding_dim)
 
         # Compute distances to all codebook entries: [B*H*W, num_embeddings]
         # Using expanded form: ||z_e - e_k||^2 = ||z_e||^2 - 2*z_e*e_k + ||e_k||^2
-        # This is more efficient than computing pairwise distances directly
         distances = (
             torch.sum(z_e_flat ** 2, dim=1, keepdim=True)
             - 2 * torch.matmul(z_e_flat, self.embedding.weight.t())
@@ -106,11 +60,6 @@ class VectorQuantizer(nn.Module):
         loss, perplexity = self.compute_vq_loss(z_e_flat, z_q_flat, encodings)
 
         # Straight-through estimator (STE): copy gradients from decoder to encoder
-        # Forward: use z_q (discrete quantized codes)
-        # Backward: copy gradients from z_q to z_e (bypassing argmin)
-        # Implementation: z_q = z_e + (z_q - z_e).detach()
-        #   - In forward: z_q (discrete) is used
-        #   - In backward: gradient flows through z_e (continuous) since (z_q - z_e).detach() has no gradient
         z_q = z_e + (z_q - z_e).detach()
 
         return z_q, loss, perplexity, encodings

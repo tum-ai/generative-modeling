@@ -134,18 +134,6 @@ def get_lpips_model(net='vgg', use_gpu=True, spatial=False):
 
 
 def lpips_loss(recon_x, target_x, lpips_model):
-    """
-    Simple functional interface for LPIPS loss.
-    
-    Args:
-        recon_x: Reconstructed images in [0, 1]
-        target_x: Original images in [0, 1]
-        lpips_model: LPIPS model
-        
-    Returns:
-        loss: LPIPS loss (perceptual distance)
-        lpips_distance: Mean LPIPS distance
-    """
     # Preprocess to [-1, 1]
     recon_preprocessed = recon_x * 2.0 - 1.0
     target_preprocessed = target_x * 2.0 - 1.0
