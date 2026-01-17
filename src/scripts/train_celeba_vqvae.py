@@ -18,13 +18,13 @@ CONFIG = {
     "num_embeddings": 1024,
     "embedding_dim": 512, # latent map is 4x4, so total embedding dim is 4*4*256 = 4096
     "image_size": 128,
-    "hidden_dims": [32, 64, 128, 256, 512],
-    "epochs": 20,
+    "hidden_dims": [64, 128, 256, 512, 1024],
+    "epochs": 30,
     "batch_size": 256,
     "lr": 1e-3,
     "commitment_cost": 0.25,
     "mse_weight": 1.0,
-    "sobel_weight": 0.0,
+    "sobel_weight": 0.25,
     "sobel_loss_type": "L2",
     "adv_weight": 0.0,
     "adv_eval_samples": 128,  # Number of random samples to evaluate adversarial loss on each iteration
@@ -34,7 +34,7 @@ CONFIG = {
     "celeb_path": "./data/",
     "device": "cuda" if torch.cuda.is_available() else "cpu",
     "project_name": "gm-variational",
-    "run_name": "celeba-vqvae-1024-512",
+    "run_name": "celeba-vqvae-1024-512-larger-sobel0.25",
     "seed": 42,
     "num_workers": 8,
 }

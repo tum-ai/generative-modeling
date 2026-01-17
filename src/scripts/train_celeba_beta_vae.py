@@ -31,14 +31,14 @@ CONFIG = {
     # "adv_weight": 0.001,  # 0.001 gives around 20% mse
     "adv_weight": 0.0,
     "adv_eval_samples": 128,  # Number of random samples to evaluate adversarial loss on each iteration
-    "perceptual_weight": 0.77,  # 0.77 gives around 20% mse
-    # "perceptual_weight": 0.0,
-    # "lpips_weight": 0.0047,  # 0.0047 gives around 20% mse (alexnet)
-    "lpips_weight": 0.0,
+    # "perceptual_weight": 0.77,  # 0.77 gives around 20% mse
+    "perceptual_weight": 0.0,
+    "lpips_weight": 0.0047,  # 0.0047 gives around 20% mse (alexnet)
+    # "lpips_weight": 0.0,
     "celeb_path": "./data/",
     "device": "cuda" if torch.cuda.is_available() else "cpu",
     "project_name": "gm-variational",
-    "run_name": "celeba-vae-kl0.001-perceptual",
+    "run_name": "celeba-vae-kl0.001-lpips",
     "seed": 42,
     "num_workers": 8,
 }
